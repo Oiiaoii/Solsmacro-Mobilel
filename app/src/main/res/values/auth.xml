@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Public OAuth client IDs (no secrets). Put yours here before building, or paste them in the app under the sign-in
+         screen's setup (long-press the logo). See SIGNIN_SETUP.md. -->
+    <string name="discord_client_id" translatable="false"></string>
+    <string name="roblox_client_id" translatable="false"></string>
+
+    <!-- OWNER: your own Discord and/or Roblox user ID. Signed in with one of these, the app shows the Blacklist screen and these
+         accounts can never be blacklisted. Only these two lines decide who the owner is. See BLACKLIST_SETUP.md. -->
+    <string name="owner_discord_id" translatable="false">1311198568228454467</string>
+    <string name="owner_roblox_id" translatable="false">4632249308</string>
+
+    <!-- Address of the blacklist file that every copy of the app downloads (a public GitHub Gist raw link, for example). -->
+    <string name="blacklist_url" translatable="false"></string>
+</resources>
