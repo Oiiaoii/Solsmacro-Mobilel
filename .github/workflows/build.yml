@@ -1,0 +1,82 @@
+name: Build APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find the Android project folder
+        id: find
+        shell: bash
+        run: |
+          dir=""
+          while IFS= read -r f; do
+            d=$(dirname "$f")
+            if [ -f "$d/build.gradle.kts" ] && [ -f "$d/app/build.gradle.kts" ]; then
+              dir="$d"
+              break
+            fi
+          done < <(find . -name settings.gradle.kts -not -path './.git/*' | sort)
+          if [ -z "$dir" ]; then
+            echo "::error::No Android project found (settings.gradle.kts, build.gradle.kts and app/build.gradle.kts in one folder)."
+            find . -maxdepth 3 -not -path './.git/*' | sort | head -80
+            exit 1
+          fi
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.9
+
+      - name: Build debug APK
+        id: build
+        working-directory: ${{ steps.find.outputs.dir }}
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log
+
+      # when the build fails: the compile errors are shown at the top of the run page and saved in one small file
+      - name: Show the errors
+        if: failure() && steps.build.outcome == 'failure'
+        working-directory: ${{ steps.find.outputs.dir }}
+        shell: bash
+        run: |
+          grep -E "^e: |error:|FAILED|What went wrong|Execution failed|Could not " build.log | head -60 > errors.txt || true
+          echo "### Build errors (send me this)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat errors.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat errors.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SolMacro-apk
+          path: ${{ steps.find.outputs.dir }}/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload the error list and full log (only when the build fails)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-errors
+          path: |
+            ${{ steps.find.outputs.dir }}/errors.txt
+            ${{ steps.find.outputs.dir }}/build.log
+          if-no-files-found: ignore
